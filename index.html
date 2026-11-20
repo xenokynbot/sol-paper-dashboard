@@ -28,6 +28,9 @@
       --a: #f0b429;
       --b: #3ec6c9;
       --c: #a78bfa;
+      --d: #f97316;
+      --e: #22c55e;
+      --f: #ec4899;
       --shadow: 0 8px 28px rgba(0,0,0,.35);
       --radius: 16px;
       --font: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
@@ -122,6 +125,9 @@
     .swatch.A { background: var(--a); }
     .swatch.B { background: var(--b); }
     .swatch.C { background: var(--c); }
+    .swatch.D { background: var(--d); }
+    .swatch.E { background: var(--e); }
+    .swatch.F { background: var(--f); }
     .ver {
       font-family: var(--mono); font-size: 11px; color: var(--muted);
       background: var(--bg-elev); border: 1px solid var(--line-soft);
@@ -197,6 +203,16 @@
     .pill.closed.up { color: var(--green); border-color: rgba(61,214,140,.3); }
     .pill.closed.down { color: var(--red); border-color: rgba(255,107,122,.3); }
     .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+
+    .sb-meta { color: var(--muted); font-size: 12.5px; margin: -4px 0 10px; line-height: 1.45; }
+    .status-pill {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .04em;
+      border-radius: 999px; padding: 2px 8px; border: 1px solid var(--line);
+      text-transform: uppercase; font-weight: 650; white-space: nowrap;
+    }
+    .status-pill.on-track, .status-pill.pass { color: var(--green); border-color: rgba(61,214,140,.35); background: var(--green-dim); }
+    .status-pill.behind { color: var(--amber); border-color: rgba(245,193,74,.35); background: rgba(245,193,74,.12); }
+    .status-pill.failed-early, .status-pill.fail { color: var(--red); border-color: rgba(255,107,122,.35); background: var(--red-dim); }
     footer.note {
       margin-top: 32px; color: var(--muted-2); font-size: 12px; line-height: 1.5;
       border-top: 1px solid var(--line-soft); padding-top: 16px;
@@ -209,7 +225,7 @@
     <header class="top">
       <div>
         <h1>Sol paper desk</h1>
-        <p class="sub">Three independent $1,000 paper books. Nothing here is a real trade.</p>
+        <p class="sub">Five independent $1,000 paper books: A–C Solana memecoins, D BTC futures (ICT fair value gaps), E BTC ICT Silver Bullet (10–11 AM ET). Nothing here is a real trade.</p>
       </div>
       <div class="updated">
         <span class="dot" id="live-dot"></span>
@@ -217,6 +233,25 @@
       </div>
     </header>
     <div id="error" hidden class="error"></div>
+    <section class="block" id="scoreboard-block" style="margin-top: 8px;">
+      <h2>Scoreboard (30-day)</h2>
+      <p class="sb-meta" id="scoreboard-meta"></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Book</th>
+              <th>Lines</th>
+              <th class="num">Trades</th>
+              <th class="num">Net $</th>
+              <th class="num">Max DD</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="scoreboard"></tbody>
+        </table>
+      </div>
+    </section>
     <section id="books" class="cards"></section>
     <section class="block">
       <h2>Comparison</h2>
@@ -253,7 +288,7 @@
     <footer class="note">
       Read-only live view of the paper books. The page refreshes about every 30 seconds without reloading. Public snapshots are about one to two minutes behind the books.
       Open-position marks prefer a cached DexScreener price (at most once a minute) and fall back to the last exit-check mark.
-      Unrealized P&amp;L is after the simulated 1% exit cost. This dashboard cannot open, close, or change any trade.
+      Unrealized P&amp;L is after the simulated exit cost (1% per side for Books A–C, 3% for Book F). This dashboard cannot open, close, or change any trade.
     </footer>
   </div>
   <script>
@@ -352,6 +387,7 @@
             <div><span class="lbl">Win rate</span><span class="val">${esc(b.metrics.win_rate)}</span></div>
             <div><span class="lbl">Open</span><span class="val">${esc(String(b.open_count))} / ${esc(String(b.max_open))}</span></div>
           </div>
+          ${b.metrics.frozen ? `<div class="blurb">Record above is ${esc(b.rule_version)} only (${esc(String(b.closed_on_current_rules))}/30 toward go-live). Frozen: ${esc(b.metrics.frozen)}</div>` : ""}
         ` : `
           <div class="equity">${esc(b.metrics.equity)}</div>
           <div class="pnl flat">No trades yet</div>
@@ -369,6 +405,40 @@
       }).join("");
     }
 
+
+    function statusClass(status) {
+      const key = String(status || "").toLowerCase().replace(/\s+/g, "-");
+      return "status-pill " + key;
+    }
+
+    function renderScoreboard(data) {
+      const sb = data.scoreboard || {};
+      const meta = $("scoreboard-meta");
+      const body = $("scoreboard");
+      if (!meta || !body) return;
+      if (sb.error) {
+        meta.textContent = sb.error;
+        body.innerHTML = `<tr><td colspan="6" class="empty">Scoreboard unavailable.</td></tr>`;
+        return;
+      }
+      const parts = [];
+      if (sb.progress_label) parts.push(sb.progress_label);
+      if (sb.window && sb.window.label) parts.push(sb.window.label);
+      parts.push("Paper only. Counts closed trades on each book's current rules. A book must meet all three lines to pass; PASS and FAIL are only called after the deadline.");
+      meta.textContent = parts.join(" · ");
+      const rows = sb.books || [];
+      body.innerHTML = rows.map((r) => `
+        <tr>
+          <td><span class="book-tag"><span class="swatch ${esc(r.book)}"></span>${esc(r.name)}</span> <span class="ver">${esc(r.rule_version)}</span></td>
+          <td>${esc(r.lines)}</td>
+          <td class="num">${esc(r.trades_display)}</td>
+          <td class="num ${toneClass(r.tone)}">${esc(r.net_pnl_display)}</td>
+          <td class="num">${esc(r.max_drawdown_display)}</td>
+          <td><span class="${statusClass(r.status)}">${esc(r.status)}</span></td>
+        </tr>
+      `).join("") || `<tr><td colspan="6" class="empty">No books on the scoreboard.</td></tr>`;
+    }
+
     function renderComparison(data) {
       const rows = data.comparison || [];
       $("comparison").innerHTML = rows.map((r) => `
@@ -377,7 +447,7 @@
           <td>${esc(r.rule_version)}</td>
           <td class="num">${esc(r.equity)}</td>
           <td class="num ${toneClass(r.tone)}">${esc(r.pnl_after_costs)}</td>
-          <td class="num">${esc(r.record)}</td>
+          <td class="num">${esc(r.record)}${r.frozen ? `<br><span class="muted">${esc(r.frozen)}</span>` : ""}</td>
           <td class="num">${esc(r.win_rate)}</td>
           <td class="num">${esc(String(r.open))}</td>
           <td class="num">${esc(String(r.closed))}</td>
@@ -409,7 +479,7 @@
             <div><span class="lbl">Opened</span><span class="val">${esc(p.opened_at_label)}</span></div>
           </div>
           <div class="muted" style="margin-top:8px">
-            Fill after 1% costs ${esc(p.entry_price_display)}
+            ${(p.book === "D" || p.book === "E") ? "Fill " : (p.book === "F" ? "Fill after 3% costs " : "Fill after 1% costs ")}${esc(p.entry_price_display)}
             · mark via ${esc(p.mark_source)}
           </div>
         </article>
@@ -448,7 +518,7 @@
       `;
     }
 
-    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa" };
+    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa", D: "#f97316", E: "#22c55e", F: "#ec4899" };
 
     function renderCharts(data) {
       const books = data.books || {};
@@ -507,6 +577,7 @@
         err.hidden = true;
         err.textContent = "";
       }
+      renderScoreboard(data);
       renderBooks(data);
       renderComparison(data);
       renderPositions(data);
