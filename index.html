@@ -31,6 +31,7 @@
       --d: #f97316;
       --e: #22c55e;
       --f: #ec4899;
+      --g: #60a5fa;
       --shadow: 0 8px 28px rgba(0,0,0,.35);
       --radius: 16px;
       --font: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
@@ -128,6 +129,7 @@
     .swatch.D { background: var(--d); }
     .swatch.E { background: var(--e); }
     .swatch.F { background: var(--f); }
+    .swatch.G { background: var(--g); }
     .ver {
       font-family: var(--mono); font-size: 11px; color: var(--muted);
       background: var(--bg-elev); border: 1px solid var(--line-soft);
@@ -288,7 +290,7 @@
     <footer class="note">
       Read-only live view of the paper books. The page refreshes about every 30 seconds without reloading. Public snapshots are about one to two minutes behind the books.
       Open-position marks prefer a cached DexScreener price (at most once a minute) and fall back to the last exit-check mark.
-      Unrealized P&amp;L is after the simulated exit cost (1% per side for Books A–C, 3% for Book F). This dashboard cannot open, close, or change any trade.
+      Unrealized P&amp;L is after the simulated exit cost (3% per side for Meme Momentum v4, Meme Breakout and Meme Pump Grads; 1% for Meme Pullback; 0.07% plus funding for the BTC books). This dashboard cannot open, close, or change any trade.
     </footer>
   </div>
   <script>
@@ -371,6 +373,16 @@
       return t === "up" || t === "success" ? "up" : t === "down" || t === "danger" ? "down" : "flat";
     }
 
+    function bookLabel(b) {
+      if (!b) return "";
+      if (b.display_name) return b.display_name;
+      if (b.book_display_name) return b.book_display_name;
+      const name = b.name || ("Book " + (b.book || "?"));
+      if (b.book && b.rule_version && b.rule_version !== "—") return name + " (" + b.book + ", " + b.rule_version + ")";
+      if (b.book) return name + " (" + b.book + ")";
+      return name;
+    }
+
     function renderBooks(data) {
       const books = data.books || {};
       const order = Object.keys(books).sort();
@@ -387,6 +399,7 @@
             <div><span class="lbl">Win rate</span><span class="val">${esc(b.metrics.win_rate)}</span></div>
             <div><span class="lbl">Open</span><span class="val">${esc(String(b.open_count))} / ${esc(String(b.max_open))}</span></div>
           </div>
+          ${b.kind === "perp" && (b.last_check || b.last_bias) ? `<div class="blurb">Bias: ${esc(b.last_bias || "—")}${b.last_check && b.last_check.note ? " · " + esc(b.last_check.note) : ""}</div>` : ""}
           ${b.metrics.frozen ? `<div class="blurb">Record above is ${esc(b.rule_version)} only (${esc(String(b.closed_on_current_rules))}/30 toward go-live). Frozen: ${esc(b.metrics.frozen)}</div>` : ""}
         ` : `
           <div class="equity">${esc(b.metrics.equity)}</div>
@@ -397,7 +410,7 @@
         return `
           <article class="card">
             <div class="kicker">
-              <span class="book-tag"><span class="swatch ${esc(b.book)}"></span>Book ${esc(b.book)} · ${esc(b.name)}</span>
+              <span class="book-tag"><span class="swatch ${esc(b.book)}"></span>${esc(bookLabel(b))}</span>
               <span class="ver">${esc(b.rule_version)}</span>
             </div>
             ${body}
@@ -429,7 +442,7 @@
       const rows = sb.books || [];
       body.innerHTML = rows.map((r) => `
         <tr>
-          <td><span class="book-tag"><span class="swatch ${esc(r.book)}"></span>${esc(r.name)}</span> <span class="ver">${esc(r.rule_version)}</span></td>
+          <td><span class="book-tag"><span class="swatch ${esc(r.book)}"></span>${esc(bookLabel(r))}</span></td>
           <td>${esc(r.lines)}</td>
           <td class="num">${esc(r.trades_display)}</td>
           <td class="num ${toneClass(r.tone)}">${esc(r.net_pnl_display)}</td>
@@ -443,7 +456,7 @@
       const rows = data.comparison || [];
       $("comparison").innerHTML = rows.map((r) => `
         <tr>
-          <td><span class="book-tag"><span class="swatch ${esc(r.book)}"></span>${esc(r.name)} (${esc(r.book)})</span></td>
+          <td><span class="book-tag"><span class="swatch ${esc(r.book)}"></span>${esc(bookLabel(r))}</span></td>
           <td>${esc(r.rule_version)}</td>
           <td class="num">${esc(r.equity)}</td>
           <td class="num ${toneClass(r.tone)}">${esc(r.pnl_after_costs)}</td>
@@ -466,7 +479,7 @@
           <div class="pos-top">
             <div>
               <span class="sym">${symLink(p.symbol, p.url)}</span>
-              <span class="muted"> · Book ${esc(p.book)} ${esc(p.rule_version)} · ${esc(p.age)}</span>
+              <span class="muted"> · ${esc(bookLabel(p))} · ${esc(p.age)}</span>
             </div>
             <div class="${toneClass(p.tone)}" style="font-weight:700;font-variant-numeric:tabular-nums">
               ${esc(p.unrealized_pnl_display)} (${esc(p.unrealized_pct_display)})
@@ -479,7 +492,7 @@
             <div><span class="lbl">Opened</span><span class="val">${esc(p.opened_at_label)}</span></div>
           </div>
           <div class="muted" style="margin-top:8px">
-            ${(p.book === "D" || p.book === "E") ? "Fill " : (p.book === "F" ? "Fill after 3% costs " : "Fill after 1% costs ")}${esc(p.entry_price_display)}
+            ${(p.book === "D" || p.book === "E" || p.book === "G") ? "Fill " : (["A", "C", "F"].includes(p.book) ? "Fill after 3% costs " : "Fill after 1% costs ")}${esc(p.entry_price_display)}
             · mark via ${esc(p.mark_source)}
           </div>
         </article>
@@ -518,7 +531,7 @@
       `;
     }
 
-    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa", D: "#f97316", E: "#22c55e", F: "#ec4899" };
+    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa", D: "#f97316", E: "#22c55e", F: "#ec4899", G: "#60a5fa" };
 
     function renderCharts(data) {
       const books = data.books || {};
@@ -528,7 +541,7 @@
         const chart = b.equity_chart || { points: b.equity_points || [], starting: b.starting_balance, floor: 980, ceiling: 1040 };
         return `
           <article class="chart-card">
-            <h3><span class="swatch ${esc(b.book)}"></span>Book ${esc(b.book)} · ${esc(b.name)}</h3>
+            <h3><span class="swatch ${esc(b.book)}"></span>${esc(bookLabel(b))}</h3>
             ${chartSvg(chart, BOOK_COLOR[b.book] || "#8b93a7")}
           </article>`;
       }).join("");
@@ -549,7 +562,7 @@
               <div>
                 <span class="${klass}">${label}</span>
                 <span class="sym"> ${symLink(ev.symbol, ev.url)}</span>
-                <span class="muted"> · Book ${esc(ev.book)} ${esc(ev.rule_version)}</span>
+                <span class="muted"> · ${esc(bookLabel(ev))}</span>
               </div>
               <div class="muted">${esc(ev.ts_label)}</div>
             </div>
