@@ -32,6 +32,8 @@
       --e: #22c55e;
       --f: #ec4899;
       --g: #60a5fa;
+      --h: #c4b5fd;
+      --i: #93c5fd;
       --shadow: 0 8px 28px rgba(0,0,0,.35);
       --radius: 16px;
       --font: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
@@ -130,6 +132,8 @@
     .swatch.E { background: var(--e); }
     .swatch.F { background: var(--f); }
     .swatch.G { background: var(--g); }
+    .swatch.H { background: var(--h); }
+    .swatch.I { background: var(--i); }
     .ver {
       font-family: var(--mono); font-size: 11px; color: var(--muted);
       background: var(--bg-elev); border: 1px solid var(--line-soft);
@@ -492,7 +496,7 @@
             <div><span class="lbl">Opened</span><span class="val">${esc(p.opened_at_label)}</span></div>
           </div>
           <div class="muted" style="margin-top:8px">
-            ${(p.book === "D" || p.book === "E" || p.book === "G") ? "Fill " : (["A", "C", "F"].includes(p.book) ? "Fill after 3% costs " : "Fill after 1% costs ")}${esc(p.entry_price_display)}
+            ${(["D", "E", "G", "I"].includes(p.book)) ? "Fill " : (["A", "C", "F", "H"].includes(p.book) ? "Fill after 3% costs " : "Fill after 1% costs ")}${esc(p.entry_price_display)}
             · mark via ${esc(p.mark_source)}
           </div>
         </article>
@@ -531,7 +535,7 @@
       `;
     }
 
-    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa", D: "#f97316", E: "#22c55e", F: "#ec4899", G: "#60a5fa" };
+    const BOOK_COLOR = { A: "#f0b429", B: "#3ec6c9", C: "#a78bfa", D: "#f97316", E: "#22c55e", F: "#ec4899", G: "#60a5fa", H: "#c4b5fd", I: "#93c5fd" };
 
     function renderCharts(data) {
       const books = data.books || {};
